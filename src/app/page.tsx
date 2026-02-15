@@ -236,23 +236,38 @@ export default function DashboardPage() {
       </section>
 
       {/* Bot Status */}
-      <section className="mt-8 bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">🤖 Estado del Bot</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="text-sm text-gray-600">Modelo LLM</div>
-            <div className="font-semibold text-gray-900">gpt-4o-mini</div>
-          </div>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="text-sm text-gray-600">WhatsApp</div>
-            <div className="font-semibold text-gray-900">+54 9 11 7374-0109</div>
-          </div>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="text-sm text-gray-600">Estado</div>
-            <div className="font-semibold text-green-600">🟢 Activo</div>
-          </div>
-        </div>
-      </section>
+      <BotStatusSection />
     </main>
+  )
+}
+
+function BotStatusSection() {
+  const [botConfig, setBotConfig] = useState<{model: string} | null>(null)
+
+  useEffect(() => {
+    fetch('/api/prompt')
+      .then(res => res.json())
+      .then(data => setBotConfig({ model: data.model || 'gpt-4o-mini' }))
+      .catch(() => setBotConfig({ model: 'gpt-4o-mini' }))
+  }, [])
+
+  return (
+    <section className="mt-8 bg-white rounded-lg shadow p-6">
+      <h2 className="text-lg font-semibold text-gray-800 mb-4">🤖 Estado del Bot</h2>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-600">Modelo LLM</div>
+          <div className="font-semibold text-gray-900">{botConfig?.model || '...'}</div>
+        </div>
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-600">WhatsApp</div>
+          <div className="font-semibold text-gray-900">+54 9 11 7374-0109</div>
+        </div>
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-600">Estado</div>
+          <div className="font-semibold text-green-600">🟢 Activo</div>
+        </div>
+      </div>
+    </section>
   )
 }

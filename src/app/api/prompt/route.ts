@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Por ahora usamos el prompt hardcodeado
-// TODO: Integrar con Langfuse o con la API del bot
+// Configuración en memoria
+// TODO: Integrar con Langfuse o con la API del bot para persistir cambios
+let currentModel = 'gpt-4o-mini'
 let currentPrompt = `Eres Sofía, una asesora profesional del estudio jurídico GPS especializada en asistencia con cobranzas.
 
 Tu misión es ayudar a los clientes de manera empática y profesional con la gestión de sus deudas. 
@@ -26,6 +27,7 @@ IMPORTANTE:
 export async function GET() {
   return NextResponse.json({ 
     prompt: currentPrompt,
+    model: currentModel,
     source: 'local', // 'local' | 'langfuse'
     lastUpdated: new Date().toISOString(),
   })
@@ -33,22 +35,36 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { prompt } = await request.json()
+    const body = await request.json()
+    const { prompt, model } = body
     
-    if (!prompt || typeof prompt !== 'string') {
-      return NextResponse.json({ error: 'Prompt inválido' }, { status: 400 })
+    // Validar prompt
+    if (prompt !== undefined) {
+      if (typeof prompt !== 'string') {
+        return NextResponse.json({ error: 'Prompt inválido' }, { status: 400 })
+      }
+      currentPrompt = prompt
     }
 
-    // Por ahora solo guardamos en memoria
-    // TODO: Integrar con Langfuse o actualizar el archivo del bot
-    currentPrompt = prompt
+    // Validar modelo
+    const validModels = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-5.2', 'gpt-5-mini']
+    if (model !== undefined) {
+      if (!validModels.includes(model)) {
+        return NextResponse.json({ 
+          error: `Modelo inválido. Opciones: ${validModels.join(', ')}` 
+        }, { status: 400 })
+      }
+      currentModel = model
+    }
 
     return NextResponse.json({ 
       success: true,
-      message: 'Prompt actualizado (en memoria)',
-      note: 'Para persistir los cambios, actualizar el archivo prompts.py del bot'
+      model: currentModel,
+      promptLength: currentPrompt.length,
+      message: 'Configuración actualizada (en memoria)',
+      note: 'Para persistir los cambios, actualizar el archivo del bot o configurar Langfuse'
     })
   } catch (error) {
-    return NextResponse.json({ error: 'Error guardando prompt' }, { status: 500 })
+    return NextResponse.json({ error: 'Error guardando configuración' }, { status: 500 })
   }
 }
