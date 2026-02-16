@@ -1,70 +1,124 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Configuración en memoria
-// TODO: Integrar con Langfuse o con la API del bot para persistir cambios
-let currentModel = 'gpt-4o-mini'
-let currentPrompt = `Eres Sofía, una asesora profesional del estudio jurídico GPS especializada en asistencia con cobranzas.
+export const dynamic = 'force-dynamic'
 
-Tu misión es ayudar a los clientes de manera empática y profesional con la gestión de sus deudas. 
+const LANGFUSE_PUBLIC_KEY = process.env.LANGFUSE_PUBLIC_KEY
+const LANGFUSE_SECRET_KEY = process.env.LANGFUSE_SECRET_KEY
+const LANGFUSE_BASE_URL = process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com'
+const PROMPT_NAME = process.env.LANGFUSE_PROMPT_NAME || 'sofia_system_prompt'
 
-INSTRUCCIONES IMPORTANTES:
-- Presentarte siempre como Sofía, asesora del estudio jurídico GPS
-- Ser profesional, empática y clara en tus respuestas
-- Usar las herramientas disponibles para consultar información sobre deudas cuando sea necesario
-- Cuando un cliente te proporcione su DNI, puedes usar la herramienta search_deuda para consultar sus deudas
-- Explicar la información de manera clara y comprensible, incluyendo detalles sobre los casos, entidades, saldos y fechas de mora
-- Ofrecer ayuda adicional cuando sea apropiado
-- Mantener un tono profesional pero cercano
-
-HERRAMIENTAS DISPONIBLES:
-- search_deuda: Consulta las deudas de un cliente por DNI. Recibe el DNI como número entero (entre 7 y 10 dígitos) y retorna información detallada sobre el deudor, casos de deuda (entidad, saldo capital, saldo actualizado, fecha de mora) y un resumen total.
-
-IMPORTANTE:
-- Nunca inventes información sobre deudas si no la has consultado
-- Si no tienes acceso a la información solicitada, sé honesta al respecto
-- Protege la privacidad de los clientes y maneja su información de forma confidencial`
-
-export async function GET() {
-  return NextResponse.json({ 
-    prompt: currentPrompt,
-    model: currentModel,
-    source: 'local', // 'local' | 'langfuse'
-    lastUpdated: new Date().toISOString(),
-  })
+// Headers para auth de Langfuse
+function getLangfuseHeaders() {
+  const auth = Buffer.from(`${LANGFUSE_PUBLIC_KEY}:${LANGFUSE_SECRET_KEY}`).toString('base64')
+  return {
+    'Authorization': `Basic ${auth}`,
+    'Content-Type': 'application/json',
+  }
 }
 
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { prompt, model } = body
-    
-    // Validar prompt
-    if (prompt !== undefined) {
-      if (typeof prompt !== 'string') {
-        return NextResponse.json({ error: 'Prompt inválido' }, { status: 400 })
-      }
-      currentPrompt = prompt
-    }
-
-    // Validar modelo
-    const validModels = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-5.2', 'gpt-5-mini']
-    if (model !== undefined) {
-      if (!validModels.includes(model)) {
-        return NextResponse.json({ 
-          error: `Modelo inválido. Opciones: ${validModels.join(', ')}` 
-        }, { status: 400 })
-      }
-      currentModel = model
-    }
-
+// GET: Obtener prompt actual desde Langfuse
+export async function GET() {
+  // Si no está configurado Langfuse, retornar error
+  if (!LANGFUSE_PUBLIC_KEY || !LANGFUSE_SECRET_KEY) {
     return NextResponse.json({ 
-      success: true,
-      model: currentModel,
-      promptLength: currentPrompt.length,
-      message: 'Configuración actualizada (en memoria)',
-      note: 'Para persistir los cambios, actualizar el archivo del bot o configurar Langfuse'
+      error: 'Langfuse no configurado',
+      source: 'none',
+    }, { status: 500 })
+  }
+
+  try {
+    // Obtener prompt con label "production"
+    const response = await fetch(
+      `${LANGFUSE_BASE_URL}/api/public/v2/prompts/${PROMPT_NAME}?label=production`,
+      {
+        headers: getLangfuseHeaders(),
+        cache: 'no-store',
+      }
+    )
+
+    if (!response.ok) {
+      const error = await response.text()
+      console.error('Langfuse error:', error)
+      return NextResponse.json({ 
+        error: 'Error obteniendo prompt de Langfuse',
+        details: error,
+        source: 'langfuse',
+      }, { status: response.status })
+    }
+
+    const data = await response.json()
+    
+    return NextResponse.json({ 
+      prompt: data.prompt,
+      name: data.name,
+      version: data.version,
+      labels: data.labels,
+      source: 'langfuse',
+      lastUpdated: data.updatedAt,
+      langfuseUrl: `${LANGFUSE_BASE_URL}/project/${data.projectId}/prompts/${PROMPT_NAME}`,
     })
   } catch (error) {
-    return NextResponse.json({ error: 'Error guardando configuración' }, { status: 500 })
+    console.error('Error fetching prompt:', error)
+    return NextResponse.json({ 
+      error: 'Error conectando con Langfuse',
+      source: 'langfuse',
+    }, { status: 500 })
+  }
+}
+
+// PUT: Crear nueva versión del prompt en Langfuse
+export async function PUT(request: NextRequest) {
+  if (!LANGFUSE_PUBLIC_KEY || !LANGFUSE_SECRET_KEY) {
+    return NextResponse.json({ 
+      error: 'Langfuse no configurado' 
+    }, { status: 500 })
+  }
+
+  try {
+    const body = await request.json()
+    const { prompt } = body
+    
+    if (!prompt || typeof prompt !== 'string') {
+      return NextResponse.json({ error: 'Prompt inválido' }, { status: 400 })
+    }
+
+    // Crear nueva versión del prompt en Langfuse
+    const response = await fetch(
+      `${LANGFUSE_BASE_URL}/api/public/v2/prompts`,
+      {
+        method: 'POST',
+        headers: getLangfuseHeaders(),
+        body: JSON.stringify({
+          name: PROMPT_NAME,
+          prompt: prompt,
+          type: 'text',
+          labels: ['production'],
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      const error = await response.text()
+      console.error('Langfuse error:', error)
+      return NextResponse.json({ 
+        error: 'Error guardando prompt en Langfuse',
+        details: error,
+      }, { status: response.status })
+    }
+
+    const data = await response.json()
+    
+    return NextResponse.json({ 
+      success: true,
+      version: data.version,
+      promptLength: prompt.length,
+      message: `Prompt actualizado en Langfuse (versión ${data.version})`,
+      note: 'El bot usará el nuevo prompt en las próximas conversaciones (cache TTL: 60s)',
+    })
+  } catch (error) {
+    console.error('Error saving prompt:', error)
+    return NextResponse.json({ 
+      error: 'Error guardando prompt' 
+    }, { status: 500 })
   }
 }
