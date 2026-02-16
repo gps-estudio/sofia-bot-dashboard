@@ -101,7 +101,7 @@ export default function DashboardPage() {
             📝 Prompt
           </Link>
           <a 
-            href="https://34.170.148.211.nip.io"
+            href="https://136.115.30.238.nip.io"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-green-600 hover:text-green-800 px-3 py-2 border border-green-300 rounded hover:bg-green-50"
@@ -170,7 +170,7 @@ export default function DashboardPage() {
             <span className="text-sm font-medium">Editar Prompt</span>
           </Link>
           <a
-            href="https://34.170.148.211.nip.io/app/accounts/2/conversations"
+            href="https://136.115.30.238.nip.io/app/accounts/2/conversations"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 p-3 bg-green-50 rounded-lg hover:bg-green-100 transition"
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                     {new Date(conv.lastActivityAt).toLocaleString('es-AR')}
                   </span>
                   <a
-                    href={`https://34.170.148.211.nip.io/app/accounts/2/conversations/${conv.id}`}
+                    href={`https://136.115.30.238.nip.io/app/accounts/2/conversations/${conv.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-green-600 hover:text-green-800 text-sm"

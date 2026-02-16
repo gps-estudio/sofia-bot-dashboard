@@ -17,7 +17,7 @@ interface Conversation {
   assignee: string | null
 }
 
-const CHATWOOT_URL = 'https://34.170.148.211.nip.io'
+const CHATWOOT_URL = 'https://136.115.30.238.nip.io'
 const CHATWOOT_ACCOUNT_ID = '2'
 
 export default function SessionsPage() {
