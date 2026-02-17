@@ -9,16 +9,17 @@ const AVAILABLE_MODELS = [
   { id: 'gpt-4o', name: 'GPT-4o', description: 'Balance calidad/costo' },
   { id: 'gpt-4.1', name: 'GPT-4.1', description: 'Última generación GPT-4' },
   { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', description: 'GPT-4.1 económico' },
-  { id: 'gpt-5.2', name: 'GPT-5.2', description: 'Flagship, mejor razonamiento' },
+  { id: 'gpt-5-nano', name: 'GPT-5 Nano', description: 'GPT-5 ultra económico' },
   { id: 'gpt-5-mini', name: 'GPT-5 Mini', description: 'GPT-5 económico' },
+  { id: 'gpt-5.2', name: 'GPT-5.2', description: 'Flagship, mejor razonamiento' },
 ]
 
 export default function PromptPage() {
   const router = useRouter()
   const [prompt, setPrompt] = useState('')
   const [originalPrompt, setOriginalPrompt] = useState('')
-  const [model, setModel] = useState('gpt-4o-mini')
-  const [originalModel, setOriginalModel] = useState('gpt-4o-mini')
+  const [model, setModel] = useState('')
+  const [originalModel, setOriginalModel] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,8 +39,8 @@ export default function PromptPage() {
         const data = await res.json()
         setPrompt(data.prompt || '')
         setOriginalPrompt(data.prompt || '')
-        setModel(data.model || 'gpt-4o-mini')
-        setOriginalModel(data.model || 'gpt-4o-mini')
+        setModel(data.model || '')
+        setOriginalModel(data.model || '')
         if (data.error) {
           setError(data.error)
         }

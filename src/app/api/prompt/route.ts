@@ -50,6 +50,7 @@ export async function GET() {
     
     return NextResponse.json({ 
       prompt: data.prompt,
+      model: data.config?.model || null,
       name: data.name,
       version: data.version,
       labels: data.labels,
@@ -76,24 +77,31 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { prompt } = body
+    const { prompt, model } = body
     
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Prompt inválido' }, { status: 400 })
     }
 
-    // Crear nueva versión del prompt en Langfuse
+    // Crear nueva versión del prompt en Langfuse (con config.model si se especifica)
+    const requestBody: Record<string, unknown> = {
+      name: PROMPT_NAME,
+      prompt: prompt,
+      type: 'text',
+      labels: ['production'],
+    }
+    
+    // Incluir config.model si se especifica
+    if (model && typeof model === 'string') {
+      requestBody.config = { model }
+    }
+
     const response = await fetch(
       `${LANGFUSE_BASE_URL}/api/public/v2/prompts`,
       {
         method: 'POST',
         headers: getLangfuseHeaders(),
-        body: JSON.stringify({
-          name: PROMPT_NAME,
-          prompt: prompt,
-          type: 'text',
-          labels: ['production'],
-        }),
+        body: JSON.stringify(requestBody),
       }
     )
 
