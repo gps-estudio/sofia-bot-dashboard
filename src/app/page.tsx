@@ -285,6 +285,9 @@ export default function DashboardPage() {
 
       {/* Bot Status */}
       <BotStatusSection />
+
+      {/* Costs Section */}
+      <CostsSection />
     </main>
   )
 }
@@ -316,6 +319,123 @@ function BotStatusSection() {
           <div className="font-semibold text-green-600">🟢 Activo</div>
         </div>
       </div>
+    </section>
+  )
+}
+
+interface HetznerServer {
+  id: number
+  name: string
+  type: string
+  description: string
+  specs: string
+  location: string
+  locationDesc: string
+  ip: string
+  status: string
+  priceMonthly: number
+}
+
+interface HetznerData {
+  servers: HetznerServer[]
+  totalMonthly: number
+  lastUpdated: string
+}
+
+function CostsSection() {
+  const [hetznerData, setHetznerData] = useState<HetznerData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/hetzner')
+      .then(res => res.json())
+      .then(data => {
+        // Filter to only show Chatwoot server (exclude openclaw)
+        const chatwootServer = (data.servers || []).filter(
+          (s: HetznerServer) => s.name.includes('ubuntu-2gb') || s.name.includes('chatwoot')
+        )
+        setHetznerData({
+          ...data,
+          servers: chatwootServer,
+          totalMonthly: chatwootServer.reduce((sum: number, s: HetznerServer) => sum + s.priceMonthly, 0)
+        })
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error('Error fetching costs:', err)
+        setLoading(false)
+      })
+  }, [])
+
+  if (loading) {
+    return (
+      <section className="mt-8 bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">💰 Costos de Infraestructura</h2>
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        </div>
+      </section>
+    )
+  }
+
+  // Estimated costs
+  const cloudRunEstimate = 0.50 // ~$0.50/month for low traffic
+  const openaiEstimate = 5.00 // Estimated OpenAI costs
+  const chatwootCost = hetznerData?.totalMonthly || 4.99
+  const totalEstimate = cloudRunEstimate + openaiEstimate + chatwootCost
+
+  return (
+    <section className="mt-8 bg-white rounded-lg shadow p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-gray-800">💰 Costos de Sofia Bot</h2>
+        <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded">
+          ~${totalEstimate.toFixed(2)}/mes
+        </span>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Cloud Run */}
+        <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xl">☁️</span>
+            <span className="font-medium text-gray-800">Cloud Run</span>
+          </div>
+          <div className="text-2xl font-bold text-green-600">~$0.50</div>
+          <div className="text-xs text-gray-500 mt-1">Backend Sofia Bot</div>
+          <div className="text-xs text-gray-400">us-central1 • Serverless</div>
+        </div>
+
+        {/* OpenAI API */}
+        <div className="p-4 bg-gradient-to-br from-purple-50 to-violet-50 rounded-lg border border-purple-200">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xl">🧠</span>
+            <span className="font-medium text-gray-800">OpenAI API</span>
+          </div>
+          <div className="text-2xl font-bold text-purple-600">~${openaiEstimate.toFixed(2)}</div>
+          <div className="text-xs text-gray-500 mt-1">GPT-4o-mini</div>
+          <div className="text-xs text-gray-400">Variable según uso</div>
+        </div>
+
+        {/* Chatwoot / Hetzner */}
+        <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xl">💬</span>
+            <span className="font-medium text-gray-800">Chatwoot</span>
+          </div>
+          <div className="text-2xl font-bold text-blue-600">€{chatwootCost.toFixed(2)}</div>
+          <div className="text-xs text-gray-500 mt-1">Servidor Hetzner</div>
+          {hetznerData?.servers[0] && (
+            <div className="text-xs text-gray-400">
+              {hetznerData.servers[0].specs} • {hetznerData.servers[0].locationDesc}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <p className="text-xs text-gray-400 mt-4 text-center">
+        * Los costos de Cloud Run y OpenAI son estimados y varían según el uso real
+      </p>
     </section>
   )
 }
