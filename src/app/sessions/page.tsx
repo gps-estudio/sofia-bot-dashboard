@@ -10,14 +10,62 @@ interface Conversation {
   phoneNumber: string
   status: 'open' | 'resolved' | 'pending'
   lastMessage: string
-  lastActivityAt: string
-  createdAt: string
+  lastActivityAt: string | number
+  createdAt: string | number
   messagesCount: number
   inboxName: string
   assignee: string | null
 }
 
-const CHATWOOT_URL = 'https://136.115.30.238.nip.io'
+// Helper function to format dates correctly
+// Handles epoch timestamps (seconds or milliseconds), ISO strings, and invalid values
+function formatDate(value: string | number | null | undefined): string {
+  if (!value) return '-'
+  
+  let date: Date
+  
+  if (typeof value === 'number') {
+    // If it's a number, check if it's in seconds (epoch) or milliseconds
+    // Epoch timestamps in seconds are typically 10 digits, milliseconds are 13
+    if (value < 10000000000) {
+      // Likely seconds, convert to milliseconds
+      date = new Date(value * 1000)
+    } else {
+      date = new Date(value)
+    }
+  } else if (typeof value === 'string') {
+    // Try to parse as ISO string or number string
+    const numValue = parseInt(value, 10)
+    if (!isNaN(numValue) && String(numValue) === value) {
+      // It's a numeric string (epoch)
+      if (numValue < 10000000000) {
+        date = new Date(numValue * 1000)
+      } else {
+        date = new Date(numValue)
+      }
+    } else {
+      // ISO string or other date format
+      date = new Date(value)
+    }
+  } else {
+    return '-'
+  }
+  
+  // Check if date is valid and not in 1970 (invalid epoch)
+  if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
+    return '-'
+  }
+  
+  return date.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+const CHATWOOT_URL = 'https://178.156.255.182.sslip.io'
 const CHATWOOT_ACCOUNT_ID = '2'
 
 export default function SessionsPage() {
@@ -203,7 +251,7 @@ export default function SessionsPage() {
                         {conv.lastMessage || '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500">
-                        {new Date(conv.lastActivityAt).toLocaleString('es-AR')}
+                        {formatDate(conv.lastActivityAt)}
                       </td>
                       <td className="px-4 py-3">
                         <a

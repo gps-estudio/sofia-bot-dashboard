@@ -17,7 +17,81 @@ interface RecentConversation {
   phoneNumber: string
   status: 'open' | 'resolved' | 'pending'
   lastMessage: string
-  lastActivityAt: string
+  lastActivityAt: string | number
+}
+
+interface HetznerServer {
+  id: number
+  name: string
+  status: string
+  type: string
+  typeName: string
+  cores: number
+  memory: number
+  disk: number
+  location: string
+  country: string
+  ip: string
+  monthlyPrice: number
+  currency: string
+  created: string
+}
+
+interface InfrastructureData {
+  servers: HetznerServer[]
+  totalMonthlyCost: number
+  currency: string
+  provider: string
+  fetchedAt: string
+  error?: string
+}
+
+// Helper function to format dates correctly
+// Handles epoch timestamps (seconds or milliseconds), ISO strings, and invalid values
+function formatDate(value: string | number | null | undefined): string {
+  if (!value) return '-'
+  
+  let date: Date
+  
+  if (typeof value === 'number') {
+    // If it's a number, check if it's in seconds (epoch) or milliseconds
+    // Epoch timestamps in seconds are typically 10 digits, milliseconds are 13
+    if (value < 10000000000) {
+      // Likely seconds, convert to milliseconds
+      date = new Date(value * 1000)
+    } else {
+      date = new Date(value)
+    }
+  } else if (typeof value === 'string') {
+    // Try to parse as ISO string or number string
+    const numValue = parseInt(value, 10)
+    if (!isNaN(numValue) && String(numValue) === value) {
+      // It's a numeric string (epoch)
+      if (numValue < 10000000000) {
+        date = new Date(numValue * 1000)
+      } else {
+        date = new Date(numValue)
+      }
+    } else {
+      // ISO string or other date format
+      date = new Date(value)
+    }
+  } else {
+    return '-'
+  }
+  
+  // Check if date is valid and not in 1970 (invalid epoch)
+  if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
+    return '-'
+  }
+  
+  return date.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 export default function DashboardPage() {
@@ -101,7 +175,7 @@ export default function DashboardPage() {
             📝 Prompt
           </Link>
           <a 
-            href="https://136.115.30.238.nip.io"
+            href="https://178.156.255.182.sslip.io"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-green-600 hover:text-green-800 px-3 py-2 border border-green-300 rounded hover:bg-green-50"
@@ -170,7 +244,7 @@ export default function DashboardPage() {
             <span className="text-sm font-medium">Editar Prompt</span>
           </Link>
           <a
-            href="https://136.115.30.238.nip.io/app/accounts/2/conversations"
+            href="https://178.156.255.182.sslip.io/app/accounts/2/conversations"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 p-3 bg-green-50 rounded-lg hover:bg-green-100 transition"
@@ -218,10 +292,10 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-400">
-                    {new Date(conv.lastActivityAt).toLocaleString('es-AR')}
+                    {formatDate(conv.lastActivityAt)}
                   </span>
                   <a
-                    href={`https://136.115.30.238.nip.io/app/accounts/2/conversations/${conv.id}`}
+                    href={`https://178.156.255.182.sslip.io/app/accounts/2/conversations/${conv.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-green-600 hover:text-green-800 text-sm"
@@ -235,9 +309,109 @@ export default function DashboardPage() {
         )}
       </section>
 
+      {/* Infrastructure Costs */}
+      <InfrastructureSection />
+
       {/* Bot Status */}
       <BotStatusSection />
     </main>
+  )
+}
+
+function InfrastructureSection() {
+  const [infraData, setInfraData] = useState<InfrastructureData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/hetzner')
+      .then(res => res.json())
+      .then(data => {
+        setInfraData(data)
+        setIsLoading(false)
+      })
+      .catch(err => {
+        console.error('Error fetching infrastructure data:', err)
+        setIsLoading(false)
+      })
+  }, [])
+
+  const statusBadge = (status: string) => {
+    const isRunning = status === 'running'
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+        isRunning ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+      }`}>
+        {isRunning ? '🟢 Activo' : '🔴 ' + status}
+      </span>
+    )
+  }
+
+  return (
+    <section className="mt-8 bg-white rounded-lg shadow overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-800">☁️ Infraestructura</h2>
+          <p className="text-sm text-gray-500">Servidores Hetzner Cloud</p>
+        </div>
+        {infraData && !infraData.error && (
+          <div className="text-right">
+            <div className="text-2xl font-bold text-blue-600">
+              €{infraData.totalMonthlyCost.toFixed(2)}<span className="text-sm font-normal text-gray-500">/mes</span>
+            </div>
+            <div className="text-xs text-gray-400">
+              ~${(infraData.totalMonthlyCost * 1.08).toFixed(2)} USD
+            </div>
+          </div>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="p-6 text-center text-gray-500">Cargando infraestructura...</div>
+      ) : infraData?.error ? (
+        <div className="p-6 text-center text-red-500">
+          ⚠️ Error: {infraData.error}
+        </div>
+      ) : infraData?.servers.length === 0 ? (
+        <div className="p-6 text-center text-gray-500">
+          No hay servidores configurados
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-200">
+          {infraData?.servers.map(server => (
+            <div key={server.id} className="px-6 py-4 hover:bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium text-gray-900">🖥️ {server.name}</span>
+                    {statusBadge(server.status)}
+                  </div>
+                  <div className="mt-1 text-sm text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
+                    <span>📍 {server.location}, {server.country}</span>
+                    <span>💻 {server.type}</span>
+                    <span>🔧 {server.cores} vCPU · {server.memory}GB RAM · {server.disk}GB SSD</span>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-400">
+                    IP: {server.ip}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-semibold text-gray-900">
+                    €{server.monthlyPrice.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-gray-500">por mes</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {infraData?.fetchedAt && (
+        <div className="px-6 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-400">
+          Actualizado: {formatDate(infraData.fetchedAt)}
+        </div>
+      )}
+    </section>
   )
 }
 

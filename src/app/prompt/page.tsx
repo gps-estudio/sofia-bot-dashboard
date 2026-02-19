@@ -66,8 +66,7 @@ export default function PromptPage() {
       if (res.ok) {
         setOriginalPrompt(prompt)
         setOriginalModel(model)
-        setSuccess('Configuración guardada correctamente')
-        setTimeout(() => setSuccess(null), 3000)
+        setSuccess('Configuración guardada en Langfuse. Hacé click en "Aplicar al Bot" para que tome los cambios.')
       } else {
         const data = await res.json()
         setError(data.error || 'Error guardando configuración')
@@ -76,6 +75,24 @@ export default function PromptPage() {
       setError('Error guardando configuración')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const reloadBotPrompt = async () => {
+    setError(null)
+    setSuccess(null)
+    try {
+      const res = await fetch('/api/reload-prompt', { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        setSuccess(`✅ Bot actualizado! Prompt recargado (${data.prompt_length} chars)`)
+        setTimeout(() => setSuccess(null), 5000)
+      } else {
+        const data = await res.json()
+        setError(data.error || 'Error recargando prompt en el bot')
+      }
+    } catch (err) {
+      setError('Error conectando con el bot')
     }
   }
 
@@ -202,14 +219,22 @@ export default function PromptPage() {
                     disabled={!hasChanges || isSaving}
                     className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Descartar cambios
+                    Descartar
                   </button>
                   <button
                     onClick={saveConfig}
                     disabled={!hasChanges || isSaving}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isSaving ? 'Guardando...' : 'Guardar Configuración'}
+                    {isSaving ? 'Guardando...' : '1. Guardar en Langfuse'}
+                  </button>
+                  <button
+                    onClick={reloadBotPrompt}
+                    disabled={hasChanges}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={hasChanges ? 'Primero guardá los cambios' : 'Aplicar el prompt guardado al bot'}
+                  >
+                    🔄 2. Aplicar al Bot
                   </button>
                 </div>
               </div>
@@ -220,14 +245,13 @@ export default function PromptPage() {
 
       {/* Info */}
       <section className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h2 className="font-semibold text-blue-800 mb-2">ℹ️ Información</h2>
-        <p className="text-sm text-blue-700">
-          Los cambios de modelo y prompt se aplican a <strong>nuevas conversaciones</strong>. 
-          Las conversaciones existentes mantienen la configuración con la que fueron creadas.
-        </p>
-        <p className="text-sm text-blue-600 mt-2">
-          <strong>Nota:</strong> El prompt se guarda en memoria. Para persistir los cambios, 
-          actualizar el archivo <code>prompts.py</code> del bot.
+        <h2 className="font-semibold text-blue-800 mb-2">ℹ️ Cómo actualizar el prompt</h2>
+        <ol className="text-sm text-blue-700 list-decimal list-inside space-y-1">
+          <li><strong>Guardar en Langfuse:</strong> Guarda el prompt en la base de datos</li>
+          <li><strong>Aplicar al Bot:</strong> Fuerza al bot a recargar el prompt de Langfuse</li>
+        </ol>
+        <p className="text-sm text-blue-600 mt-3">
+          <strong>💡 Tip:</strong> Los cambios se aplican a todas las conversaciones nuevas inmediatamente.
         </p>
       </section>
 
