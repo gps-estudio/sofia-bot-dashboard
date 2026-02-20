@@ -68,12 +68,15 @@ function formatDate(value: string | number | null | undefined): string {
   })
 }
 
+const CONVERSATIONS_PER_PAGE = 5
+
 export default function DashboardPage() {
   const router = useRouter()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [recentConversations, setRecentConversations] = useState<RecentConversation[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -86,7 +89,7 @@ export default function DashboardPage() {
     try {
       const [statsRes, convsRes] = await Promise.all([
         fetch('/api/chatwoot/stats'),
-        fetch('/api/chatwoot/conversations?limit=5')
+        fetch('/api/chatwoot/conversations?limit=50')
       ])
 
       if (statsRes.ok) {
@@ -252,34 +255,62 @@ export default function DashboardPage() {
             No hay conversaciones recientes. Conectá con Chatwoot para ver las sesiones.
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
-            {recentConversations.map((conv) => (
-              <div key={conv.id} className="px-6 py-4 hover:bg-gray-50 flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900">{conv.contactName || 'Sin nombre'}</span>
-                    {statusBadge(conv.status)}
+          <>
+            <div className="divide-y divide-gray-200">
+              {recentConversations
+                .slice((currentPage - 1) * CONVERSATIONS_PER_PAGE, currentPage * CONVERSATIONS_PER_PAGE)
+                .map((conv) => (
+                <div key={conv.id} className="px-6 py-4 hover:bg-gray-50 flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">{conv.contactName || 'Sin nombre'}</span>
+                      {statusBadge(conv.status)}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      {conv.phoneNumber} • {conv.lastMessage?.slice(0, 50)}...
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {conv.phoneNumber} • {conv.lastMessage?.slice(0, 50)}...
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">
+                      {formatDate(conv.lastActivityAt)}
+                    </span>
+                    <a
+                      href={`https://178.156.255.182.sslip.io/app/accounts/2/conversations/${conv.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-green-600 hover:text-green-800 text-sm"
+                    >
+                      🔗 Ver
+                    </a>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">
-                    {formatDate(conv.lastActivityAt)}
-                  </span>
-                  <a
-                    href={`https://178.156.255.182.sslip.io/app/accounts/2/conversations/${conv.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-green-600 hover:text-green-800 text-sm"
+              ))}
+            </div>
+            {/* Pagination */}
+            {recentConversations.length > CONVERSATIONS_PER_PAGE && (
+              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-500">
+                  Página {currentPage} de {Math.ceil(recentConversations.length / CONVERSATIONS_PER_PAGE)}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    🔗 Ver
-                  </a>
+                    ← Anterior
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(recentConversations.length / CONVERSATIONS_PER_PAGE), p + 1))}
+                    disabled={currentPage >= Math.ceil(recentConversations.length / CONVERSATIONS_PER_PAGE)}
+                    className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Siguiente →
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </section>
 
