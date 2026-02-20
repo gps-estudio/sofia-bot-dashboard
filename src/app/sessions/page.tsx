@@ -86,7 +86,7 @@ export default function SessionsPage() {
   const loadConversations = async () => {
     setIsLoading(true)
     try {
-      const res = await fetch(`/api/chatwoot/conversations?status=${filterStatus}&limit=100`)
+      const res = await fetch(`/api/chatwoot/conversations?status=${filterStatus}`)
       if (res.ok) {
         const data = await res.json()
         setConversations(data.conversations || [])
